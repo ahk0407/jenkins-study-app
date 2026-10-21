@@ -70,8 +70,15 @@ app.post('/api/todos', async (req, res) => {
       'INSERT INTO todos (title) VALUES ($1) RETURNING *',
       [title]
     );
-    res.status(201).json(result.rows[0]);
+
+    const savedTodo = result.rows[0];
+    
+    // 추가된 데이터를 터미널 콘솔 로그에 상세 출력
+    console.log(`📌 [새 TODO 추가됨] ID: ${savedTodo.id} | 제목: "${savedTodo.title}" | 생성시각: ${savedTodo.created_at}`);
+
+    res.status(201).json(savedTodo);
   } catch (err) {
+    console.error('❌ TODO 등록 실패:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
