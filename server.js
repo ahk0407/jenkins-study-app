@@ -7,6 +7,12 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// 요청 로그 미들웨어 (모든 요청의 메소드와 URL을 출력)
+app.use((req, res, next) => {
+  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // 정적 파일 제공 (index.html 서빙)
 app.use(express.static(path.join(__dirname)));
 
