@@ -25,6 +25,7 @@ pipeline {
                     if [ ! $(docker ps -q -f name=my-postgres-db) ]; then
                         docker run -d --name my-postgres-db \
                           --network app-net \
+                          -p 5432:5432 \
                           -e POSTGRES_USER=admin \
                           -e POSTGRES_PASSWORD=password123 \
                           -e POSTGRES_DB=study_db \
