@@ -1,11 +1,14 @@
 const express = require('express');
 const { Pool } = require('pg');
+const path = require('path');
 
 const app = express();
 const PORT = 3000;
 
-// JSON 요청 본문 파싱 미들웨어
 app.use(express.json());
+
+// 정적 파일 제공 (index.html 서빙)
+app.use(express.static(path.join(__dirname)));
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'my-postgres-db',
@@ -15,7 +18,7 @@ const pool = new Pool({
   port: 5432,
 });
 
-// 테이블 자동 생성 (서버 구동 시 초기화)
+// 테이블 자동 생성
 const initDB = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS todos (
@@ -34,17 +37,12 @@ const initDB = async () => {
 };
 initDB();
 
-// 1. 기본 상태 확인
-app.get('/', async (req, res) => {
-  res.send({ status: 'success', message: '🚀 TODO CRUD API 서비스 가동 중!' });
-});
-
-// 2. 헬스 체크
+// 헬스 체크
 app.get('/health', (req, res) => {
   res.status(200).json({ uptime: process.uptime(), status: 'healthy' });
 });
 
-// 3. [READ] 전체 TODO 목록 조회
+// [READ] 전체 TODO 목록 조회
 app.get('/api/todos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM todos ORDER BY id ASC');
@@ -54,7 +52,7 @@ app.get('/api/todos', async (req, res) => {
   }
 });
 
-// 4. [CREATE] 새 TODO 등록
+// [CREATE] 새 TODO 등록
 app.post('/api/todos', async (req, res) => {
   const { title } = req.body;
   if (!title) {
