@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        DISCORD_WEBHOOK = credentials('DISCORD_WEBHOOK_URL')
+    }
+
     stages {
         stage('Docker 이미지 빌드') {
             steps {
@@ -59,30 +63,43 @@ pipeline {
 
         stage('헬스 체크 및 CRUD 검증') {
             steps {
-                echo '데이터 등록(POST) 및 조회(GET)를 직접 검증합니다.'
+                echo '데이터 등록 및 조회를 검증합니다.'
                 sh 'sleep 5'
-                // 1. 헬스 체크
                 sh 'docker exec my-web-app-server wget -qO- http://127.0.0.1:3000/health'
-                
-                // 2. [CREATE 검증] wget을 이용해 POST로 할 일 1개 추가
-                sh '''
-                    docker exec my-web-app-server wget --server-response --post-data='{"title":"Jenkins 파이프라인 자동등록 항목"}' \
-                      --header='Content-Type: application/json' \
-                      -qO- http://127.0.0.1:3000/api/todos
-                '''
-
-                // 3. [READ 검증] 등록된 TODO 목록 조회
-                sh 'docker exec my-web-app-server wget -qO- http://127.0.0.1:3000/api/todos'
             }
         }
     }
 
     post {
         success {
-            echo '✅ DB 연동 및 CRUD API 배포 검증 완료!'
+            echo '디스코드로 성공 알림을 전송합니다.'
+            sh '''
+                curl -H "Content-Type: application/json" \
+                     -X POST \
+                     -d "{
+                           \\"embeds\\": [{
+                             \\"title\\": \\"✅ CI/CD 배포 성공\\",
+                             \\"description\\": \\"**프로젝트:** ${JOB_NAME}\\\\n**빌드 번호:** #${BUILD_NUMBER}\\\\n**상태:** 운영 배포 완료\\\\n[배포 서비스 확인](http://localhost:8082)\\",
+                             \\"color\\": 3066993
+                           }]
+                         }" \
+                     $DISCORD_WEBHOOK
+            '''
         }
         failure {
-            echo '❌ 파이프라인 실행 중 오류 발생'
+            echo '디스코드로 실패 알림을 전송합니다.'
+            sh '''
+                curl -H "Content-Type: application/json" \
+                     -X POST \
+                     -d "{
+                           \\"embeds\\": [{
+                             \\"title\\": \\"❌ CI/CD 파이프라인 실패\\",
+                             \\"description\\": \\"**프로젝트:** ${JOB_NAME}\\\\n**빌드 번호:** #${BUILD_NUMBER}\\\\n**상태:** 빌드 또는 테스트 실패로 배포 중단\\",
+                             \\"color\\": 15158332
+                           }]
+                         }" \
+                     $DISCORD_WEBHOOK
+            '''
         }
     }
 }
