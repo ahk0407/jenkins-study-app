@@ -20,10 +20,8 @@ pipeline {
             steps {
                 echo '도커 네트워크 및 PostgreSQL 컨테이너를 구동합니다.'
                 sh '''
-                    # 네트워크가 없으면 생성
                     docker network inspect app-net >/dev/null 2>&1 || docker network create app-net
 
-                    # DB 컨테이너가 없으면 실행 (이미 실행 중이면 유지하여 데이터 보존)
                     if [ ! $(docker ps -q -f name=my-postgres-db) ]; then
                         docker run -d --name my-postgres-db \
                           --network app-net \
@@ -58,22 +56,32 @@ pipeline {
             }
         }
 
-        stage('헬스 체크 및 DB 검증') {
+        stage('헬스 체크 및 CRUD 검증') {
             steps {
-                echo '서비스 정상 기동 및 DB 연결 상태를 점검합니다.'
+                echo '데이터 등록(POST) 및 조회(GET)를 직접 검증합니다.'
                 sh 'sleep 5'
-                sh 'docker ps -f name=my-web-app-server'
+                // 1. 헬스 체크
                 sh 'docker exec my-web-app-server wget -qO- http://127.0.0.1:3000/health'
+                
+                // 2. [CREATE 검증] wget을 이용해 POST로 할 일 1개 추가
+                sh '''
+                    docker exec my-web-app-server wget --server-response --post-data='{"title":"Jenkins 파이프라인 자동등록 항목"}' \
+                      --header='Content-Type: application/json' \
+                      -qO- http://127.0.0.1:3000/api/todos
+                '''
+
+                // 3. [READ 검증] 등록된 TODO 목록 조회
+                sh 'docker exec my-web-app-server wget -qO- http://127.0.0.1:3000/api/todos'
             }
         }
     }
 
     post {
         success {
-            echo '✅ DB 연동 애플리케이션 배포가 완료되었습니다!'
+            echo '✅ DB 연동 및 CRUD API 배포 검증 완료!'
         }
         failure {
-            echo '❌ 파이프라인 실행 중 오류가 발생했습니다.'
+            echo '❌ 파이프라인 실행 중 오류 발생'
         }
     }
 }
